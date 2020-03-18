@@ -1,0 +1,247 @@
+<script>
+$(document).ready(function(){
+	
+	var c = {
+		init:function(){
+			this.loaddata();
+			$('#myshow_name').html(''+adminname+'');
+			$('#myshow_user').html(js.getoption('adminzhan'));
+			$('#myshow_deptname').html(js.getoption('deptallname'));
+			$('#myshow_companyname').html(js.getoption('nowcompany'));
+			get('myface').src=js.getoption('adminface');
+			
+			xcy.showqipao('historyjson', '0');
+			xcy.showqipao('agentjson', '1');
+			if(apicloud){
+				$('#versiondiv').html('V'+api.appVersion+'');
+			}
+		},
+		loaddata:function(lz){
+			js.ajax('indexreim|showmyinfo', false,function(da){
+				var ret=da.data;
+				c.data = ret;
+				js.setoption('deptallname',ret.deptallname);
+				js.setoption('ranking',ret.ranking);
+				adminface	= ret.face;
+				js.setoption('adminface',adminface);
+				adminname 	= ret.name;
+				js.setoption('adminname',adminname);
+				js.setoption('adminid',ret.id);
+				adminid 	= ret.id;
+				get('myface').src=adminface;
+				$('#myshow_id').html(adminid);
+				$('#myname').html(adminname);
+				var url = location.href;
+				var str = url.indexOf('http')>-1 ? ' <span class="weui-badge">本地</span>':'';
+				$('#myshow_name').html(adminname+''+str+'');
+				$('#myshow_deptname').html(ret.deptallname);
+				$('#myshow_companyname').html(ret.companyinfo.name);
+				js.setoption('nowcompany', ret.companyinfo.name);
+				if(ret.companymode){
+					$('#userchangediv').show();
+				}else{
+					$('#userchangediv').hide();
+				}
+				var sj = ret.mobile;
+				$('#myshow_mobile').html(''+sj.substr(0,3)+'****'+sj.substr(-4)+'');
+				$('#myshow_ranking').html(ret.ranking);
+				xcy.reloadok();
+			},'get');
+		},
+		loaddatashow:function(da){
+			
+		},
+		loginout:function(){
+			var msg = '确定要退出登录吗？';
+			rockconfirm(msg, function(jg){
+				if(jg=='yes')c.loginouts();
+			});
+		},
+		loginouts:function(){
+			js.loading('退出中...')
+			js.ajax('login|loginexit',false,function(){
+				c.loginoutok();
+			}, 'get', function(){
+				c.loginoutok();
+			});
+		},
+		loginoutok:function(){
+			js.setoption(TOKENKEY,'');
+			js.setoption('adminid','');
+			TOKEN  = '';
+			adminid= '0';
+			clearTimeout(xcy.homeretime);
+			if(apicloud){
+				var mipush = api.require('mipush');
+				if(mipush)mipush.unregisterPush();
+			}
+			js.wx.msgok('已成功退出',function(){
+				xcy.addtabs('登录','login');
+			},1);
+		},
+		editpass:function(){
+			xcy.addtabs('修改密码', 'editpass');
+		},
+		clearcache:function(){
+			if(!apicloud){
+				js.wx.msgok('清除成功');
+			}else{
+				api.showProgress({title:'',text:''});
+				api.clearCache(function() {
+					api.hideProgress();
+					setTimeout("js.wx.msgok('清除成功')", 300);
+				});
+			}
+		},
+		changecompany:function(){
+			xcy.addtabs('切换单位', 'company');
+		},
+		gengxinx:function(){
+			if(apicloud){
+				xcy.updateChange(true);
+			}else{
+				js.wx.msgok('已是最新版本',false, 1);
+			}
+		},
+		editface:function(){
+			if(!apicloud)return;
+			api.actionSheet({
+				title: '修改头像',
+				cancelTitle: '取消',
+				buttons: ['拍照','相册中选'],
+			}, function(ret, err) {
+				var index = ret.buttonIndex;
+				if(index==1)xcy.apigetPicture('camera', c.changeappok, true);
+				if(index==2)xcy.apigetPicture('album', c.changeappok, true);//相册
+			});
+		},
+		changeappok:function(ret){
+			if(ret.data){
+				var ext = ret.data.substr(-3).toLowerCase();
+				if(!js.isimg(ext)){
+					js.wx.msgerror('请选图片类型');
+				}else{
+					c.sendapifile(ret.data);
+				}
+			}
+		},
+		sendapifile:function(path){
+			js.loading('上传中...');
+			api.ajax({
+				url: js.apiurl('upload','upfile',{noasyn:'yes',thumbnail:'150x150'}),
+				report:true,method: 'post',
+				data: {values: {name: 'file'},files: {file: path}}
+			}, function(ret, err){
+				if(ret){
+					if(ret.status==1){
+						c.sendfileok(ret.body);
+					}
+				}else{
+					js.msg('msg', JSON.stringify(err));
+					js.unloading();
+				}
+			});
+		},
+		sendfileok:function(d1){
+			js.loading('保存中...');
+			js.ajax('user|editface',{fid:d1.id}, function(ret){
+				var face = ret.data;
+				if(face){
+					adminface 	= face;
+					c.data.face = face;
+					js.setoption('adminface', face);
+					get('myface').src=face;
+					js.wx.msgok('头像已修改');
+				}else{
+					js.wx.msgerror('修改失败');
+				}
+			});
+		},
+		openzjx:function(){
+			var d = this.data;
+			d.companyinfo = '';
+			xcy.addtabs(d.name,'userinfo', d);
+		}
+	}
+	js.initbtn(c);
+	c.init();
+	
+	xcy.touchload['user']=function(){
+		c.loaddata('');
+	}
+});
+</script>
+
+<div class="weui-cells" style="margin-top:15px">
+	<div class="weui-cell weui-cell_access">
+		<div class="weui-cell__hd"  clickevt="editface" style="position: relative;margin-right: 10px;">
+			<img src="images/noface.png" class="r-face" id="myface"  style="width:60px;display: block;height:60px"/>
+		</div>
+		<div class="weui-cell__bd"  clickevt="openzjx">
+			<p id="myshow_name">您好</p>
+			<p id="myshow_deptname" style="font-size: 13px;color: #888888;margin-top:5px;">部门</p>
+		</div>
+		<div class="weui-cell__ft"></div>
+	</div>
+</div>	
+
+
+
+<div class="weui-cells__title">个人信息</div>
+<div class="weui-cells">
+	<div class="weui-cell">
+		<div class="weui-cell__bd">
+			<p>职位</p>
+		</div>
+		<div style="color: #888888;" id="myshow_ranking"></div>
+	</div>
+	<div class="weui-cell weui-cell_access">
+		<div class="weui-cell__bd">
+			<p>我手机号</p>
+		</div>
+		<div class="weui-cell__ft" id="myshow_mobile"></div>
+	</div>
+	<div class="weui-cell">
+		<div class="weui-cell__bd">
+			用户名
+		</div>
+		<div style="color: #888888;" id="myshow_user"></div>
+	</div>
+	<div class="weui-cell weui-cell_access" id="userchangediv" style="display:none" clickevt="changecompany">
+		<div class="weui-cell__bd">
+			<p>切换单位</p>
+		</div>
+		<div class="weui-cell__ft" id="myshow_companyname"></div>
+	</div>
+</div>
+
+
+<div class="weui-cells__title">关于</div>
+<div class="weui-cells">
+	
+	<div class="weui-cell weui-cell_access" clickevt="editpass">
+		<div class="weui-cell__bd">
+			修改密码
+		</div>
+		<div class="weui-cell__ft"></div>
+	</div>
+	<div class="weui-cell weui-cell_access" clickevt="clearcache">
+		<div class="weui-cell__bd">
+			清除缓存
+		</div>
+		<div class="weui-cell__ft"></div>
+	</div>
+	
+	<div class="weui-cell weui-cell_access" clickevt="gengxinx">
+		<div class="weui-cell__bd">
+			当前版本
+		</div>
+		<div class="weui-cell__ft" id="versiondiv">V0.0.1</div>
+	</div>
+	
+</div>
+
+
+<div style="height:20px"></div>
+<a class="weui-btn_cell weui-btn_cell-warn" type="button" clickevt="loginout">退出登录</a>
+<div style="height:15px"></div>

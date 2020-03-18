@@ -1,0 +1,126 @@
+<script>
+$(document).ready(function(){
+	{params}
+	
+	var c = {
+		init:function(){
+			$('#file_fileext').html(params.fileext.toUpperCase());
+			this.loadss();
+		},
+		loadss:function(){
+			js.ajax('file|getfilenew',{id:params.fileid}, function(ret){
+				c.loadshow(ret.data);
+			},'get','加载中...');
+		},
+		loadshow:function(da){
+			this.filename = ''+da.id+'_'+da.filename;
+			this.panexist();
+			$('#file_filename').html(da.filename);
+			$('#file_fileext').html(da.fileext);
+			$('#file_fileinfo').html('发送者：'+da.optname+'<br>大小：'+da.filesizecn+'<br>'+da.adddt+'');
+		},
+		openfile:function(o1,lx){
+			if(this.existbool && lx==1){
+				this.openbdfile();
+				return;
+			}
+			js.ajax('upload|fileinfo',{type:lx,id:params.fileid,ismobile:1}, function(ret){
+				c.openfileshow(ret.data);
+			},'get','加载中...');
+		},
+		openfileshow:function(da){
+			var url = da.url;
+			if(url.substr(0,4)!='http')url=''+apiurl+''+url+'&token='+TOKEN+'&adminid='+adminid+'&openfrom=app';
+			if(da.type==0){
+				xcy.openurls(url);
+			}
+			if(da.type==1){
+				if(apicloud){	
+					this.downurl = url;
+					$('#jindutiao').show();
+					api.download({
+						url:url,
+						report: true,
+						cache: true,
+						savePath: 'fs://download/'+this.filename+'',
+						allowResume: true
+					}, function(ret, err) {
+						if (ret.state == 1) {
+							c.downok(ret);
+						} else {
+						}
+						$('.jindutiao').width(''+ret.percent+'%');
+					});
+				}else{
+					js.location(url);
+				}
+			}
+		},
+		cancelxz:function(){
+			api.cancelDownload({
+				url: this.downurl
+			});
+			api.toast({msg:'已取消下载'});
+		},
+		downok:function(ret){
+			$('#jindutiao').hide();
+			$('#downbtn').html('<font color="green">已下载，点我打开</font>');
+			this.existbool = true;
+		},
+		panexist:function(){
+			this.existbool = false;
+			if(!apicloud)return;
+			if(!this.fs)this.fs = api.require('fs');
+			this.fs.exist({
+				path: 'fs://download/'+this.filename+''
+			}, function(ret, err) {
+				if (ret.exist) {
+					c.downok();
+				} else {
+					
+				}
+			});
+		},
+		openbdfile:function(){
+			var path = ''+api.fsDir+'/download/'+this.filename+'';
+			api.alert({msg:path,title:'文件路径，请自己到文件管理器下打开'});
+		}
+	}
+	
+	$('#backbtn').show();
+	xcy.backcall.fileopen=function(){
+		js.back();
+	}
+	c.init();
+	js.initbtn(c);
+	xcy.leftright=function(lx){
+		if(lx>100)js.back();
+	}
+});
+</script>
+
+<div style="margin-top:50px" align="center">
+	<div id="file_fileext" style="width:60px;height:60px;background:#53B7ED;color:white;
+	border-radius:5px;line-height:60px;text-align:center;overflow:hidden;">TXT</div>
+	<div class="weui-msg__desc" id="file_filename" style="margin-top:20px;padding:0px 20px">文件名</div>
+	<div style="margin-top:10px;font-size:14px;color:#888888"  id="file_fileinfo">发送者：管理员<br>大小：10KB<br>时间</div>
+	<div style="margin-top:10px;"><a clickevt="openfile,1" id="downbtn" class="weui-btn weui-btn_warn" type="button">未下载，点我下载</a></div>
+	
+	<div style="margin-top:20px;"><button clickevt="openfile,0"  class="weui-btn weui-btn_primary" type="button">在线预览</button></div>
+	
+	<div style="padding:20px;margin-top:10px;display:none" id="jindutiao">
+	<div class="weui-progress">
+		<div class="weui-progress__bar" align="left">
+			<div class="weui-progress__inner-bar jindutiao" style="width: 0%;"></div>
+		</div>
+		<a href="javascript:;" clickevt="cancelxz" class="weui-progress__opr">
+			<i class="weui-icon-cancel"></i>
+		</a>
+	</div>
+	</div>
+	
+</div>
+
+<div class="weui-footer weui-footer_fixed-bottom">
+<p  class="weui-footer__text">提示：下载会占用手机存储空间</p>
+</div>

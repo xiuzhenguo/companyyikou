@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="maximum-scale=1.0,minimum-scale=1.0,user-scalable=0,width=device-width,initial-scale=1.0"/>
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="yes" />
+<title></title> 
+<script src="js/jquery.js"></script>
+<script src="js/base64-min.js"></script>
+<script src="js/js.js"></script>
+<script src="js/jswx.js"></script>
+<script src="js/config.js"></script>
+<script src="js/fastclick.min.js"></script>
+<link rel="stylesheet" href="res/css/rui.css"/>
+<link rel="stylesheet" href="res/css/weui.min.css"/>
+<link rel="stylesheet" href="res/fontawesome/css/font-awesome.min.css">
+<style>
+body,html{ background-color: #f1f1f1;overflow:hidden}
+.weui-btn:disabled{background-color:#bbbbbb}
+.weui-badge:empty{display:none}
+.weui-media-box:before,.weui-cell:before{left:0}
+.weui-grid__icon{width:30px;height:30px;text-align:center;}
+.weui-grid__icon img{border-radius:6px}
+.weui-grid__icon i{font-size:26px}
+.weui-grid__icon span{position:absolute;top:5px;right:5px;}
+</style>
+<script>
+var diaoyong = false,agentarr={},isapp=false,apicloud=false;
+
+document.addEventListener('plusready', function(){
+	plus.navigator.setStatusBarBackground('#1389D3');
+	var xh = plus.device.model;
+	if(xh)device = ''+xh.replace(' ','')+''+device+'';
+	isapp = true;
+	initbody();
+	var isneiy = js.request('bstr');
+	if(isneiy){
+		plus.key.addEventListener('backbutton',function(){js.back();},false);
+	}
+});
+var backci = 0;
+apiready=function(){
+	api.removeLaunchView();
+	api.setFullScreen({fullScreen: false});
+	apicloud = true;
+	device   = api.deviceId;
+	api.setStatusBarStyle({color:'#1389D3'});//只对android
+	initbody();
+	xcy.qiantai = true;
+	CFROM='npp'+api.systemType+'';
+	var isneiy = js.request('bstr');
+	xcy.initApp();
+	if(isneiy)return;
+	//以下是主界面才需要
+	api.addEventListener({
+		name: 'keyback'
+	}, function(ret, err){
+		if(backci==0){
+			api.toast({msg:'在按一次退出应用'});
+			setTimeout('backci=0',1000);
+		}else{
+			api.closeWidget({silent:true});
+		}
+		backci++;
+	});
+	api.addEventListener({
+		name:'pause'
+	}, function(ret, err){
+		xcy.qiantai = false;
+	});
+	api.addEventListener({
+		name:'resume'
+	}, function(ret, err){        
+		xcy.qiantai = true;
+		setTimeout('xcy.reloadWebSocket(true)',1000);
+		api.cancelNotification({id: -1});
+	});
+	xcy.initPush();
+	api.addEventListener({
+		name: 'rockhome'
+	}, function(ret, err) {
+		if(ret.value.stype=='reload'){
+			if(nowurl=='home')xcy.pushListener();
+		}
+	});
+	xcy.updateChange(false);
+}
+
+var nowurl = 'home',nowtabs={},viewheight=350,loadci=0;
+function initbody(){
+	if(diaoyong)return;
+	diaoyong = true;
+	FastClick.attach(document.body);
+	title 	  = js.getoption('title', systemtitle);
+	adminname = js.getoption('adminname');
+	adminface = js.getoption('adminface');
+	apiurl 	  = js.getoption('apiurl', apiurl);
+	date = js.now('Y-m-d');
+	xcy.init();
+	js.ajaxerror=function(msg, code){
+		if(code==199){
+			js.msg();
+			js.wx.alert('登录失效：'+msg+'，去重新登录',function(){
+				xcy.addtabs('登录','login');
+			});
+			clearTimeout(xcy.homeretime);
+		}
+		xcy.showerror(msg);
+	}
+}
+var xcy = {
+	initApp:function(){},
+	init:function(){
+		if(js.iswxbo()){
+			$('#header').remove();
+		}
+		this.resiezess();
+		$(window).resize(xcy.resiezess);
+		xcy.touchobj = $('#mainbody').rockdoupull({
+			downbool:true,
+			scrollbool:true,
+			ondownsuccess:function(){
+				if(xcy.touchload[nowurl])xcy.touchload[nowurl]();
+			},
+			ondownbefore:function(){
+				if(xcy.touchload[nowurl]){
+					return true;
+				}else{
+					return false;
+				}
+			},
+			ondrayrlend:function(lx){
+				xcy.leftright(lx);
+			}
+		});
+
+		//判断是否登录
+		adminid = js.getoption('adminid');
+		if(!adminid || TOKEN==''){
+			$('#footerdiv').hide();
+			this.addtabs('登录','login');
+			return;
+		}
+		var bstr,str,da;
+		var bstr= js.request('bstr');
+		if(bstr){
+			da = JSON.parse(jm.base64decode(bstr));
+			this.addtabs(da.name,da.url, da);
+			sessionStorage.removeItem('nowtabs');
+			$('#backbtn').show();
+			return;
+		}
+		str = js.getoption('agentjson');
+		if(str)this.agentarr = js.decode(str);
+		
+		str = js.getoption('historyjson');
+		if(str)this.historyarr = js.decode(str);
+		
+		str = sessionStorage.getItem('nowtabs');
+		if(str){
+			da = JSON.parse(str);
+			this.addtabs(da.name,da.url, da);
+			str=js.getoption('nowindex');
+			if(str)this.changetab(str,true);
+		}else{
+			this.addtabs('','home');
+		}
+	},
+	leftright:function(){},
+	touchload:{},
+	getheight:function(ss){
+		var hei = 0;if(!ss)ss=0;
+		if(get('header_title'))hei+=50;
+		if(get('footerdiv') && get('footerdiv').style.display!='none')hei+=$('#footerdiv').height();
+		if(get('footerother'))hei+=$('#footerother').height();
+		return $(window).height()-hei+ss;
+	},
+	resiezess:function(){
+		var hei = xcy.getheight();
+		$('#mainbody').css('height',''+hei+'px');
+		viewheight = hei;
+		if(xcy.touchobj)xcy.touchobj.resize();
+	},
+	showerror:function(cw){
+		if(this.touchobj)this.touchobj.ondownerror(cw);
+	},
+	reloadok:function(){
+		if(this.touchobj)this.touchobj.ondownok();
+	},
+	index:0,
+	changetab:function(tab, bo){
+		var tabs=['chat','ying','user','my'];
+		$('#tabzhu'+this.index+'').removeClass('weui-bar__item_on');
+		$('#tabzhu'+tab+'').addClass('weui-bar__item_on');
+		get('tabimgzhu'+this.index+'').src='images/nav_'+tabs[this.index]+'0.png';
+		get('tabimgzhu'+tab+'').src='images/nav_'+tabs[tab]+'1.png';
+		this.index=tab;
+		js.setoption('nowindex', tab);
+		if(bo)return false;
+		if(tab==0)this.addtabs('','home');
+		if(tab==1)this.addtabs('应用','ying');
+		if(tab==2)this.addtabs('联系人','lianxi');
+		if(tab==3)this.addtabs('我','user');
+		return false;
+	},
+	istabs:function(url){
+		var str = ',home,ying,lianxi,user,';
+		return str.indexOf(','+url+',')>-1;
+	},
+	tabscont:{},
+	unloadarr:{},
+	setTitle:function(na){
+		$('#header_title').html(na);
+		document.title = na;
+	},
+	addtabs:function(na,url,cans){
+		if(js.ajaxbool){
+			if(apicloud){
+				api.cancelAjax({tag: 'xinhu'});
+			}else{
+				js.wx.msgerror('点太快了');return;
+			}
+		}
+		if(this.unloadarr[nowurl]){
+			var str = this.unloadarr[nowurl]();
+			if(str){
+				js.wx.msgerror(str);
+				return;
+			}
+			this.unloadarr[nowurl]=false;
+		}
+		this.touchload[url]=false;
+		$('#backbtn').hide();
+		if(!cans)cans={};
+		nowurl = url;
+		if(!na)na= title;
+		this.setTitle(na);
+		var rand = js.getrand();
+		var urlpms = JSON.stringify(cans);
+		cans.name = na;
+		cans.url = url;
+		nowtabs	 = cans;
+		sessionStorage.setItem('nowtabs', JSON.stringify(cans));
+		if(this.istabs(url)){
+			$('#footerdiv').show();
+		}
+		if(this.istabs(url) && this.tabscont[url]){
+			this.addtabsok(this.tabscont[url], rand, urlpms);
+			return;
+		}
+		if(loadci>0){
+			if(apicloud){
+				api.showProgress({title:'',text:''});
+			}else{
+				js.loading();
+			}
+		}
+		loadci++;
+		$.ajax({
+			'type':'get',
+			'url':'list/'+url+'.html?'+rand+'',
+			success:function(da){
+				xcy.addtabsok(da,rand, urlpms);
+				if(apicloud)api.hideProgress();
+			},
+			error:function(){
+				js.unloading();
+				js.msg('msg','加载出错');
+				if(apicloud)api.hideProgress();
+			}
+		});
+	},
+	addtabsok:function(da, rand, urlpms){
+		if(this.istabs(nowurl))this.tabscont[nowurl]=da;
+		js.unloading();
+		var s = da;
+			s = s.replace(/\{rand\}/gi, rand);
+			s = s.replace(/\{params\}/gi, "var params="+urlpms+";");
+		$('#mainbody').html(s);
+		xcy.touchobj.resize();
+		this.resiezess();
+	},
+	
+	openurl:function(dz){
+		if(dz.indexOf('nei=true')==-1 && dz.substr(0,4)!='http'){
+			dz = ''+apiurl+''+dz+'&adminid='+adminid+'&token='+TOKEN+'';
+			var opentype='nei',nurl=location.href;
+			if(nurl.substr(0,4)=='http')opentype=jm.base64encode(nurl);
+			dz+= '&openfrom='+CFROM+'';
+			if(opentype)dz+='&opentype='+opentype+'';
+		}
+		this.openurls(dz);
+	},
+	openurls:function(url){
+		if(isapp){
+			plus.webview.open(url, md5(url), {}, 'slide-in-right');
+		}else if(apicloud){
+			var delay = 0;
+			if(url.indexOf('bstr=')>0)delay=0;
+			if(delay>0)api.showProgress({title:'',text:''});
+			api.openWin({name:'url'+js.getrand(),url: url,bounces:false,softInputBarEnabled:false,slidBackEnabled:true,vScrollBarEnabled:false,delay:delay,hScrollBarEnabled:false,allowEdit:true,progress:{ type:'default',title:'', text:'',   color:''}});
+			if(delay>0)setTimeout(function(){api.hideProgress();},delay+50);
+		}else{
+			js.location(url);
+		}
+	},
+	historyarr:[],
+	agentarr:[],
+	showqipao:function(lx, xu){
+		var d = this.historyarr;
+		if(xu==1)d = this.agentarr;
+		var stotal=0;
+		for(var i=0;i<d.length;i++)stotal+=parseFloat(d[i].stotal);
+		var myhomenum = js.getoption('myhomenum');
+		if(xu=='0' && myhomenum){
+			myhomenum = ','+myhomenum+',';
+			d = this.agentarr;
+			for(var i=0;i<d.length;i++){
+				if(myhomenum.indexOf(','+d[i].num+',')>-1){
+					stotal+=parseFloat(d[i].stotal);
+				}
+			}
+		}
+		if(stotal==0)stotal='';
+		$('#stotal_ss'+xu+'').html(''+stotal);
+	},
+	backcall:{},
+	back:function(){
+		if(this.backcall[nowurl])this.backcall[nowurl]();
+	},
+	openchat:function(na,type,id){
+		var ustr={name:na,type:type,id:id,url:'chat'};
+		this.opennei(ustr);
+	},
+	grouptype:function(did, lx){
+		var s = '';
+		if(isempt(did) || (lx && lx!='group'))return s;
+		if(did=='1')s=' <b style="font-weight:lighter" class="reimlabel">全员</b>';
+		if(did>1)s=' <b style="font-weight:lighter" class="reimlabel1">部门</b>';
+		return s;
+	},
+	getface:function(face){
+		if(face && face.substr(0,4)!='http')face=''+apiurl+''+face+'';
+		return face;
+	},
+	opennei:function(ustr){
+		var bstr=jm.base64encode(JSON.stringify(ustr));
+		var url = 'index.html?bstr='+bstr+'&nei=true';
+		this.openurl(url);
+	},
+	apigetPicture:function(lx, funs, jian){
+		if(!funs)funs=function(){};if(!jian)jian=false;
+		api.getPicture({
+			sourceType: lx,
+			mediaValue: 'all',
+			destinationType: 'url',
+			allowEdit: jian,
+			quality: 70,
+			saveToPhotoAlbum: false
+		}, function(ret, err){
+			if(ret)funs(ret);
+		});
+	},
+	initWebSocket:function(conf){
+		this.reimconf = conf;
+		this.socketob = false;
+		var url = jm.base64decode(conf.wsurl);
+		if(url.indexOf('ws')!=0 || !conf.recid)return;
+		clearTimeout(this.webtimes);
+		this.ws = new WebSocket(url);
+		this.ws.onopen = function(){
+			this.send('{"from":"'+conf.recid+'_app","adminid":"'+adminid+'","atype":"connect","sendname":"'+adminname+'"}');
+			xcy.socketob = true;
+		};
+		this.ws.onerror = function(){
+			if(adminid==1)js.msg('msg','无法连接到通信地址');
+			xcy.socketob = false;
+			xcy.reloadWebSocket(false);
+		};
+		this.ws.onmessage = function (evt){ 
+			var received_msg = evt.data;
+			xcy.pushListener();
+		};
+		this.ws.onclose = function(){
+			xcy.socketob = false;
+			xcy.reloadWebSocket(false);
+		};
+	},
+	reloadWebSocket:function(bo){
+		clearTimeout(this.webtimes);
+		if(!TOKEN || !this.reimconf)return;
+		if(!bo){
+			this.webtimes=setTimeout('xcy.reloadWebSocket(true)', 10*1000);
+		}else{
+			if(!this.socketob)this.initWebSocket(this.reimconf);
+		}
+	},
+	initPushBool:false,
+	initPush:function(){
+		if(!apicloud || !TOKEN || this.initPushBool)return; 
+		this.initXiaomiPush(TOKEN);
+		xcy.initPushBool=true;
+		if(typeof('WebSocket')=='undefined'){
+			js.msg('msg','您的系统不支持WebSocket，无法实时收到消息');
+			return;
+		}
+		js.ajax('indexreim|reimconfig', {},function(ret){
+			xcy.initWebSocket(ret.data.config);
+		},'get',function(){js.msg('msg','请升级最新版本OA系统');});
+	},
+	initXiaomiPush:function(ailas){
+		if(xiaomi_appId=='')return;
+		var shouji = api.deviceName.toLowerCase();
+		if(shouji.indexOf('xiaomi')>-1 || api.systemType=='ios'){
+			var mipush = api.require('mipush');
+			if(!mipush)return;
+			var can = {
+				appId: xiaomi_appId,
+				appKey: xiaomi_appKey
+			}
+			if(api.systemType=='ios')can={};
+			mipush.registerPush(can, function(ret,err) {
+				if(ret.status){
+					mipush.setAlias({alias:ailas},function(ret){});
+				}else{
+					if(apiurl.indexOf('rockoa.com')>-1 && adminid==1)js.msg('msg','创建小米推送失败');
+				}
+			});
+		}
+		if(shouji.indexOf('huawei')>-1){
+			var huaweiPush = api.require('huaweiPush');
+			if(!huaweiPush)return;
+			huaweiPush.init(function(ret, err) {
+				if (ret.status) {
+					huaweiPush.getToken(function(ret, err) {
+						if(ret.status){
+							js.ajax('index|updateTokenIp',{hwtoken:ret.token});
+						}
+					});
+				}else{
+					if(apiurl.indexOf('rockoa.com')>-1 && adminid==1)js.msg('msg','创建华为推送失败');
+				}
+			});
+		}
+	},
+	pushListener:function(ret){
+		if(!xcy.qiantai){
+			api.notification({sound:'default',notify: {title:'',content: '有新消息'}});
+		}
+		api.sendEvent({name: 'rockchat',extra: {stype: 'reload'}});
+	},
+	updateChange:function(bo){
+		if(api.systemType=='ios')return;
+		if(bo)js.loading('检查中...');
+		var url = ''+apiurl+'api.php?a=appupdate&m=login&ver='+api.appVersion+'';
+		api.ajax({url:url,tag:'xinhuupdate',method:'get',data:{values:{}}},function(ret,err){
+			js.unloading();
+			if(!ret.success){
+				if(bo)js.wx.msgok('已是最新版本',false, 1);
+			}else{
+				rockconfirm('发现新版本V'+ret.version+'，大小'+ret.size+'：'+ret.explain+'，是否马上升级？', function(jg){
+					if(jg=='yes')xcy.updateChanges(ret.updateurl);
+				});
+			}
+		});
+	},
+	updateChanges:function(url){
+		js.loading('下载中(<span id="jindutiao">0%</span>)...');
+		api.download({
+			savePath: 'fs://download/xinhuoa.apk',url: url,report: true,cache: false,allowResume: true
+		}, function(ret, err) {
+			if (ret.state == 1){
+				js.unloading();
+				api.installApp({appUri:ret.savePath});
+			}
+			$('#jindutiao').html(''+ret.percent+'%');
+		});
+	}
+}
+</script>
+</head>
+<body>
+<div id="header">
+	<div class="r-header">
+		<div class="r-header-text"  onclick="location.reload()" id="header_title">信呼OA</div>
+		<span onclick="setcogurl()" id="logincogbtn" style="display:none" class="r-position-right r-header-btn"><i class="icon-cog"></i></span>
+		<span onclick="xcy.back()" id="backbtn" style="display:none" class="r-position-left r-header-btn"><i class="icon-chevron-left"></i></span>
+	</div>
+	<div style="height:50px;overflow:hidden"></div>
+</div>
+
+<div id="mainbody" class="r-touch" style="height:350px;position:relative;">
+	<div align="center" style="margin-top:50px"><i style="height:40px;width:40px" class="weui-loading"></i></div>
+</div>
+
+<div class="weui-tabbar"  ontouchstart="return false" id="footerdiv" style="position:fixed;width:100%;bottom:0px;z-index:99;display:none">
+	<div ontouchend="return xcy.changetab(0)" id="tabzhu0" class="weui-tabbar__item weui-bar__item_on">
+		<span style="display: inline-block;position: relative;">
+			<img class="weui-tabbar__icon" id="tabimgzhu0" src="images/nav_chat1.png">
+			<span class="weui-badge" id="stotal_ss0" style="position: absolute;top: -2px;right: -15px;"></span>
+		</span>
+		<p class="weui-tabbar__label">会话</p>
+	</div>
+
+	<div ontouchend="return xcy.changetab(1)" id="tabzhu1" class="weui-tabbar__item">
+		<span style="display: inline-block;position: relative;">
+			<img class="weui-tabbar__icon" id="tabimgzhu1" src="images/nav_ying0.png">
+			<span class="weui-badge" id="stotal_ss1" style="position: absolute;top: -2px;right: -15px;"></span>
+		</span>
+		<p class="weui-tabbar__label">应用</p>
+	</div>
+
+	<div ontouchend="return xcy.changetab(2)" id="tabzhu2" class="weui-tabbar__item">
+		<img class="weui-tabbar__icon" id="tabimgzhu2" src="images/nav_user0.png">
+		<p class="weui-tabbar__label">联系人</p>
+	</div>
+
+	<div ontouchend="return xcy.changetab(3)" id="tabzhu3" class="weui-tabbar__item">
+		<img class="weui-tabbar__icon" id="tabimgzhu3" src="images/nav_my0.png">
+		<p class="weui-tabbar__label" id="showmyname">我</p>
+	</div>
+</div>
+
+
+<script src="res/plugin/jquery-rocksilder.js"></script>
+<script src="res/plugin/jquery-rockdoupull.js"></script>
+<script src="res/plugin/jquery-imgview.js"></script>
+</body>
+</html>

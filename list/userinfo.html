@@ -1,0 +1,96 @@
+<script>
+$(document).ready(function(){
+	{params}
+	
+	var c = {
+		init:function(){
+			$('#userinfo_name').html(params.name);
+			$('#userinfo_deptname').html(params.deptallname);
+			
+			get('userinfo_myface').src=params.face;
+			$('#userinfo_ranking').html(params.ranking);
+			$('#userinfo_mobile').html(params.mobile);
+			$('#userinfo_email').html(params.email);
+			$('#userinfo_tel').html(params.tel);
+			$('#userinfo_id').html(params.id);
+			if(adminid!=1)$('#userinfo_id').parent().remove();
+		},
+		faxiaoxi:function(){
+			xcy.openchat(params.name,'user', params.id);
+		},
+		callphone:function(){
+			var sj = params.mobile;
+			if(!sj)return;
+			if(apicloud){
+				api.call({type:'tel_prompt',number:sj});
+			}
+		},
+		calltel:function(){
+			var sj = params.tel;
+			if(!sj)return;
+			if(apicloud){
+				api.call({type:'tel_prompt',number:sj});
+			}
+		}
+	}
+	c.init();
+	js.initbtn(c);
+	
+	$('#backbtn').show();
+	xcy.backcall.userinfo=function(){
+		xcy.addtabs('联系人','lianxi');
+	}
+});
+</script>
+
+<div class="weui-cells" style="margin-top:15px">
+	<div class="weui-cell">
+		<div class="weui-cell__hd" style="position: relative;margin-right: 10px;">
+			<img src="images/noface.png" onclick="$.imgview({url:this.src,ismobile:true})" class="r-face" id="userinfo_myface"  style="width: 60px;display: block;height:60px"/>
+		</div>
+		<div class="weui-cell__bd">
+			<p id="userinfo_name">您好</p>
+			<p id="userinfo_deptname" style="font-size: 13px;color: #888888;margin-top:5px;">部门</p>
+		</div>
+	</div>
+</div>	
+
+
+
+<div class="weui-cells__title">联系方式</div>
+<div class="weui-cells">
+	<div class="weui-cell">
+		<div class="weui-cell__bd">
+			<p>职位</p>
+		</div>
+		<div style="color: #888888;" id="userinfo_ranking"></div>
+	</div>
+	<div class="weui-cell weui-cell_access" clickevt="callphone">
+		<div class="weui-cell__bd">
+			<p>手机号</p>
+		</div>
+		<div class="weui-cell__ft" id="userinfo_mobile"></div>
+	</div>
+	<div class="weui-cell weui-cell_access">
+		<div class="weui-cell__bd">
+			<p>邮箱</p>
+		</div>
+		<div style="color: #888888;"  id="userinfo_email"></div>
+	</div>
+	<div class="weui-cell weui-cell_access" clickevt="calltel">
+		<div class="weui-cell__bd">
+			<p>电话</p>
+		</div>
+		<div class="weui-cell__ft" id="userinfo_tel"></div>
+	</div>
+	<div class="weui-cell">
+		<div class="weui-cell__bd">
+			<p>用户ID</p>
+		</div>
+		<div style="color: #888888;" id="userinfo_id"></div>
+	</div>
+</div>
+
+<div class="weui-btn—area" style="margin:20px">
+	<input class="weui-btn weui-btn_primary" type="button" clickevt="faxiaoxi" value="发消息">
+</div>

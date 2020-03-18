@@ -1,0 +1,66 @@
+<script>
+$(document).ready(function(){
+	
+	var c = {
+		init:function(){
+			js.ajax('index|getcompany',false, function(ret){
+				c.showcompany(ret.data);
+			});
+		},
+		showcompany:function(da){
+			var i,a=da.companyinfoall,len=a.length,str='';
+			this.companyid = da.companyid;
+			for(i=0;i<len;i++){
+				str+='<div onclick="c{rand}.change(\''+a[i].name+'\',\''+a[i].id+'\')" class="weui-cell weui-cell_access"><div class="weui-cell__bd"><p><img src="'+a[i].logo+'" height="20" width="20" align="absmiddle"> '+a[i].name+'</p></div>';
+				if(a[i].id==da.companyid)str+='<div><i class="weui-icon-success-no-circle"></i></div>';
+				str+='</div>';
+			}
+			$('#company_list').html(str);
+		},
+		change:function(ns,id){
+			if(id==this.companyid)return;
+			var msg = '确定要切换到单位上“'+ns+'”吗？';
+			if(apicloud){
+				api.confirm({
+					title: '切换单位',
+					msg: msg,
+					buttons: ['确定', '取消']
+				}, function(ret, err) {
+					var index = ret.buttonIndex;
+					if(index==1)c.changeok(ns,id);
+				});
+			}else{
+				js.wx.confirm(msg, function(jg){
+					if(jg=='yes')c.changeok(ns,id);
+				});
+			}
+		},
+		changeok:function(ns,id){
+			js.loading('切换中...');
+			js.setoption('nowcompany', ns);
+			js.ajax('index|changecompany',{id:id}, function(){
+				js.wx.msgok('切换成功',function(){xcy.backcall.company();},1);
+			});
+		}
+	}
+	c.init();
+	
+	$('#backbtn').show();
+	xcy.backcall.company=function(){
+		xcy.addtabs('我','user');
+	}
+	c{rand} =c;
+});
+</script>
+
+
+
+<div class="weui-cells__title">我加入单位</div>
+<div class="weui-cells" id="company_list">
+	<div class="weui-cell">
+		<div class="weui-cell__bd">
+			<p></p>
+		</div>
+	</div>
+	
+</div>

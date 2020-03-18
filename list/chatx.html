@@ -1,0 +1,202 @@
+<link rel="stylesheet" href="res/css/chat.css"/>
+<script src="js/strformat.js"></script>
+<script src="res/plugin/jquery-rockupload.js"></script>
+<script>
+$(document).ready(function(){
+	{params}
+	
+	var im = {
+		init:function(){
+			$('#footerdiv').remove();
+			$('#backbtn').show();
+			
+			this.type = params.type;
+			this.gid = params.id;
+			this.initload();
+		},
+		initload:function(){
+			js.ajax('reim|getgroupuser',{type:this.type,gid:this.gid},function(ret){
+				im.initloadshow(ret.data);
+				xcy.reloadok();
+			}, 'get', function(){
+				xcy.showerror();
+			});
+		},
+		initloadshow:function(ret){
+			var uarr = ret.uarr,s='',d;
+			this.infor = ret.infor;
+			$('#huihuaname').html(ret.infor.name);
+			$('#myshow_name').html(ret.infor.name);
+			$('#huihuanameshu').html(ret.infor.utotal+'人');
+			xcy.setTitle(''+ret.infor.name+'('+ret.infor.utotal+')');
+			var s1 = xcy.grouptype(ret.infor.deptid, this.type);
+			if(!s1)s1='普通会话';
+			get('chatface').src=xcy.getface(this.infor.face);
+			$('#chattypeshow').html(s1);
+			if(isempt(ret.infor.deptid)){
+				$('#tuibtn_show').show();
+				$('#yaoqing_show').show();
+			}else{
+				$('#tuibtn_show').hide();
+				$('#yaoqing_show').hide();
+			}
+			for(var i=0;i<uarr.length;i++){
+				d = uarr[i];
+				s+='<a href="javascript:;" onclick="" class="weui-grid" style="width:20%;padding:10px 0px">';
+				s+='<div class="weui-grid__icon">';
+				s+='	<img src="'+d.face+'">';
+				s+='</div>';
+				s+='<p class="weui-grid__label">';
+				s+=' '+d.name+'';
+				s+='</p>';
+				s+='</a>';
+			}
+			$('#chatxlist').html(s);
+		},
+		chatexit:function(){
+			rockconfirm('确定要退出此会话吗？', function(jg){
+				if(jg=='yes')im.chatexits();
+			});
+		},
+		chatexits:function(){
+			js.ajax('reim|exitgroup',{gid:this.gid},function(da){
+				js.wx.msgok('已退出会话');
+				im.initload();
+			}, 'get','退出会话中...');
+		},
+		yaoqing:function(){
+			rockprompt('','请输入邀请人员姓名/手机号', function(txt){
+				if(txt)im.yaoqings(txt);
+			});
+		},
+		yaoqings:function(txt){
+			js.ajax('reim|yaoqingname',{gid:this.gid,val:txt},function(da){
+				js.wx.msgok('邀请成功');
+				im.initload();
+			}, 'post','邀请中...');
+		},
+		editname:function(){
+			rockprompt('','请输入新的会话名', function(txt){
+				if(txt)im.editnames(txt);
+			}, this.infor.name);
+		},
+		editnames:function(txt){
+			txt = strreplace(txt);
+			if(txt==this.infor.name)return;
+			js.ajax('reim|editname',{gid:this.gid,val:txt},function(da){
+				js.wx.msgok('修改成功');
+				im.initload();
+			}, 'post','修改中...');
+		},
+		editface:function(){
+			if(!apicloud)return;
+			api.actionSheet({
+				title: '修改头像',
+				cancelTitle: '取消',
+				buttons: ['相册中选','用默认'],
+			}, function(ret, err) {
+				var index = ret.buttonIndex;
+				if(index==1)xcy.apigetPicture('album', im.changeappok, true);//相册
+				if(index==2)im.sendfileok({thumbpath:'images/group.png',id:'0'});
+			});
+		},
+		changeappok:function(ret){
+			if(ret.data){
+				var ext = ret.data.substr(-3).toLowerCase();
+				if(!js.isimg(ext)){
+					js.wx.msgerror('请选图片类型');
+				}else{
+					im.sendapifile(ret.data);
+				}
+			}
+		},
+		sendapifile:function(path){
+			js.loading('上传中...');
+			api.ajax({
+				url: js.apiurl('upload','upfile',{noasyn:'yes',thumbnail:'150x150'}),
+				report:true,method: 'post',
+				data: {values: {name: 'file'},files: {file: path}}
+			}, function(ret, err){
+				if(ret){
+					if(ret.status==1){
+						im.sendfileok(ret.body);
+					}
+				}else{
+					js.msg('msg', JSON.stringify(err));
+					js.unloading();
+				}
+			});
+		},
+		sendfileok:function(ret){
+			js.ajax('reim|editface',{gid:this.gid,fileid:ret.id},function(da){
+				js.wx.msgok('修改成功');
+				get('chatface').src=xcy.getface(ret.thumbpath);
+			}, 'get','修改中...');
+		}
+	}
+	im.init();
+	js.initbtn(im);
+	xcy.backcall.chatx=function(){
+		js.back();
+	}
+	xcy.touchload.chatx=function(){
+		im.initload();
+	}
+	xcy.leftright=function(lx){
+		if(lx>100)js.back();
+	}
+	im{rand}=im;
+});
+</script>
+
+<div class="weui-cells" style="margin-top:15px">
+	<div class="weui-cell weui-cell_access" clickevt="editface" >
+		<div class="weui-cell__hd"style="position: relative;margin-right: 10px;">
+			<img src="images/noface.png" class="r-face" id="chatface"  style="width:40px;display: block;height:40px"/>
+		</div>
+		<div class="weui-cell__bd">
+			<p id="myshow_name"></p>
+		</div>
+		<div class="weui-cell__ft"></div>
+	</div>
+</div>	
+
+<div class="weui-cells__title">设置</div>
+<div class="weui-cells">
+	<div class="weui-cell">
+		<div class="weui-cell__bd">
+			会话类型
+		</div>
+		<div id="chattypeshow" style="color:#7f7f7f">普通会话</div>
+	</div>
+	<div class="weui-cell weui-cell_access"  clickevt="editname">
+		<div class="weui-cell__bd">
+			会话名
+		</div>
+		<div class="weui-cell__ft" id="huihuaname"></div>
+	</div>
+	<div class="weui-cell">
+		<div class="weui-cell__bd">
+			会话上人员数
+		</div>
+		<div id="huihuanameshu" style="color:#7f7f7f"></div>
+	</div>
+	<div style="display:none" id="yaoqing_show" clickevt="yaoqing" class="weui-cell weui-cell_access">
+		<div class="weui-cell__bd">
+			邀请
+		</div>
+		<div class="weui-cell__ft"></div>
+	</div>
+</div>
+
+<div class="weui-cells__title">会话上人员</div>
+<div id="chatxlist" style="background-color:white" class="weui-grids"></div>
+
+
+
+
+<div style="display:none" id="tuibtn_show">
+<div style="height:20px"></div>
+<a class="weui-btn_cell weui-btn_cell-warn" type="button" clickevt="chatexit">退出会话</a>
+<div style="height:15px"></div>
+</div>

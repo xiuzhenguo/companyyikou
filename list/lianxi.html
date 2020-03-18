@@ -1,0 +1,256 @@
+<script>
+$(document).ready(function(){
+	
+	var c = {
+		init:function(){
+			this.initsearch();
+			this.reloadss();
+			
+			xcy.showqipao('historyjson', '0');
+			xcy.showqipao('agentjson', '1');
+			
+			var str = js.getoption('deptjson');
+			if(str){
+				deptarr=js.decode(js.getoption('deptjson'));
+				userarr=js.decode(js.getoption('userjson'));
+				grouparr=js.decode(js.getoption('groupjson'));
+				c.showuserall();
+				c.showgroupall();
+			}
+		},
+		reloadss:function(){
+			js.ajax('dept|data',false,function(da){
+				var ret=da.data;
+				js.setoption('deptjson', ret.deptjson);
+				js.setoption('userjson', ret.userjson);
+				js.setoption('groupjson', ret.groupjson);
+				deptarr=js.decode(ret.deptjson);
+				userarr=js.decode(ret.userjson);
+				grouparr=js.decode(ret.groupjson);
+				c.showuserall();
+				c.showgroupall();
+				xcy.reloadok();
+			}, 'get');
+		},
+		showuserall:function(){
+			var i,len=userarr.length;
+			$('#userdao').html('');
+			$('#userstotal').html('('+len+')');
+			this.showuserlists(deptarr[0].id, 0);
+		},
+		showuserlists:function(id,level, o1){
+			if(o1){
+				var as = $('#userdao span');
+				var rb = false;
+				for(var i=0;i<as.length;i++){
+					if(o1==as[i])rb=true;
+					if(rb)$(as[i]).remove();
+					
+				}
+			}
+			var a =deptarr,i,len=a.length,d,dn;
+			$('#deptlist').html('');
+			$('#list').html('')
+
+			for(i=0;i<len;i++){
+				d = a[i];
+				if(d.id==id)dn=d;
+				if(d.pid==id){
+					d.face = 'images/wjj.png';
+					this.showdeptlsit(d, level+1);
+				}
+			}
+			if(level>0)$('#userdao').append('<span class="jiantou">＞</span>');
+			$('#userdao').append('<span onclick="lx{rand}.showuserlists('+id+',0, this)">'+dn.name+'</span>');
+			len=userarr.length;
+			
+			//人员放在前面
+			var noi = 0;
+			for(i=0;i<len;i++){
+				d = userarr[i];
+				if(d.deptid==id || d.deptidss.indexOf(','+id+',')>-1){
+					d.oi = i;
+					this.showlist(d, false);
+					noi++;
+				}
+			}
+			
+			if(noi==0 && $('#deptlist').html()==''){
+				$('#list').append('<div style="font-size:14px;text-align:center;padding:30px 10px;color:#cccccc">'+dn.name+' 下无联系人</div>');
+			}
+		},
+		showdeptlsit:function(a, level){
+			var s='';
+			s+='<a class="weui-cell weui-cell_access" onclick="lx{rand}.showuserlists('+a.id+','+level+')">';
+			s+=' 	<div class="weui-cell__hd"><img class="r-face" src="'+apiurl+''+a.face+'" style="width:34px;height:34px;display:block;margin-right:10px"></div>';
+			s+=' 	<div class="weui-cell__bd"><p>'+a.name+'';
+			if(a.ntotal>0)s+=' <span style="font-size:12px;color:#888888">('+a.ntotal+')</span>';
+			s+='	</p></div>';
+			s+='</a>';
+			$('#deptlist').append(s);
+		},
+		showlist:function(a, cbo){
+			var s='<a temp="user_'+a.id+'" onclick="lx{rand}.openuinfo('+a.oi+')" class="weui-cell weui-cell_access">';
+			s+='	<div class="weui-cell__hd">';
+			s+='		<img class="r-face" src="'+a.face+'" style="width:34px;height:34px;display:block;margin-right:10px"></div>';
+			s+='	</div>';
+			s+='	<div class="weui-cell__bd">';
+			s+='		<p>'+a.name+'</p>';
+			s+='		<p style="font-size:13px;color:#888888">'+a.deptname+'('+a.ranking+')</p>';
+			s+='	</div>';
+			s+='</a>';
+			if(!cbo){
+				$('#list').append(s);
+			}else{
+				$('#searchlist').append(s);
+			}
+		},
+		openuinfo:function(oi){
+			var d = userarr[oi];
+			xcy.addtabs(d.name,'userinfo', d);
+		},
+		showgroupall:function(){
+			var i,len2=grouparr.length;
+			$('#grouplist').html('');
+			$('#groupstotal').html('('+len2+')');
+			for(i=0;i<len2;i++)this.showgroup(grouparr[i], true);
+			this.showgroup({name:'创建会话',face:'images/jia.png',id:0}, true);
+		},
+		showgroup:function(a, cbo){
+			var s='',s1=xcy.grouptype(a.deptid);
+			s+='<a class="weui-cell weui-cell_access" onclick="lx{rand}.openguser(\''+a.name+'\','+a.id+')">';
+			s+=' 	<div  class="weui-cell__hd"><img class="r-face" src="'+xcy.getface(a.face)+'" style="width:34px;height:34px;display:block;margin-right:10px"></div>';
+			s+=' 	<div  class="weui-cell__bd"><p>'+a.name+''+s1+'</p></div>';
+			s+='</a>';
+			$('#grouplist').append(s);
+		},
+		openguser:function(na,id){
+			if(id==0){
+				rockprompt('','请输入创建会话名称', function(txt){
+					if(txt)c.createchat(strreplace(txt));
+				});
+				return;
+			}
+			xcy.openchat(na,'group', id);
+		},
+		createchat:function(txt){
+			js.ajax('reim|createlun',{gid:this.gid,val:jm.base64encode(txt)},function(da){
+				js.wx.msgok('创建成功');
+				c.reloadss();
+			}, 'post','创建中...');
+		},
+		initsearch:function(){
+			$('#search_input').keydown(function(){
+				c.sousousou();
+			});
+			$('#search_input').keyup(function(){
+				c.sousousou();
+			});
+			$('#search_input').blur(function(){
+				c.blursou();
+			});
+		},
+		searchuser:function(){
+			$('#search_bar').addClass('weui-search-bar_focusing');
+			$('#search_input').focus();
+		},
+		blursou:function(){
+			var val = $('#search_input').val();
+			if(val==''){
+				$('#search_bar').removeClass('weui-search-bar_focusing');	
+				this.hitsoubo(false);
+			}
+		},
+		searchcancel:function(){
+			$('#search_input').val('').blur();
+			this.blursou();
+		},
+		souclear:function(){
+			$('#search_input').val('').focus();
+		},
+		sousousou:function(){
+			clearTimeout(this.sousousoutime);
+			this.sousousoutime=setTimeout(function(){
+				c.sousousous();
+			},500);
+		},
+		hitsoubo:function(bo){
+			if(!bo){
+				$('#userdao').show();
+				$('#deptlist').show();
+				$('#list').show();
+				$('#searchlist').hide();
+			}else{
+				$('#userdao').hide();
+				$('#deptlist').hide();
+				$('#list').hide();
+				$('#searchlist').show().html('');
+			}
+		},
+		changeuser:function(o1,lx){
+			$("#userlx div").removeClass('active');
+			$("#userlx_"+lx+"").addClass('active');
+			$("div[temp='user']").hide();
+			$("div[temp='user']:eq("+lx+")").show();
+		},
+		sousousous:function(){
+			var val = $('#search_input').val();
+			if(val==''){
+				this.hitsoubo(false);
+				return;
+			}
+			this.hitsoubo(true);
+			var i,a=userarr,len=a.length;
+			for(i=0;i<len;i++){
+				if(a[i].name.indexOf(val)>-1 || a[i].deptname.indexOf(val)>-1 || a[i].ranking.indexOf(val)>-1 || a[i].pingyin.indexOf(val)==0){
+					a[i].oi = i;
+					this.showlist(a[i],true);
+				}
+			}
+		}
+	}
+	c.init();
+	js.initbtn(c);
+	xcy.touchload['lianxi']=function(){
+		c.reloadss();
+	}
+	lx{rand} = c;
+});
+</script>
+<style>
+.weui_daohang{display:block;width:100%;background:#f1f1f1;height:50px;overflow:hidden;}
+.weui_daohang span{height:50px;padding:0px 8px;display:block;line-height:50px; float:left;margin:0px;}
+.weui_daohang .jiantou{padding:0px;font-size:12px;color:#cccccc}
+</style>
+<div class="weui-search-bar" id="search_bar">
+	<form clickevt="searchuser" class="weui-search-bar__form">
+		<div class="weui-search-bar__box">
+			<i class="weui-icon-search"></i>
+			<input type="search" class="weui-search-bar__input" id="search_input" placeholder="搜索联系人" >
+			<a href="javascript:" class="weui-icon-clear" clickevt="souclear"></a>
+		</div>
+		<label class="weui-search-bar__label" id="search_text">
+			<i class="weui-icon-search"></i>
+			<span>搜索</span>
+		</label>
+	</form>
+	<a href="javascript:" class="weui-search-bar__cancel-btn" clickevt="searchcancel">取消</a>
+</div>
+
+<div id="userlx" class="r-tab">
+	<div id="userlx_0" clickevt="changeuser,0" class="r-tab-item active">联系人<span id="userstotal">(0)</span></div>
+	<div id="userlx_1" clickevt="changeuser,1" class="r-tab-item">会话<span id="groupstotal">(0)</span></div>
+</div>
+
+<div id="userlistdiv" temp="user" style="margin-top:0">
+	<div class="weui_daohang" id="userdao"></div>
+	<div class="r-border-t">
+		<div id="list" style="margin-top:0" class="weui-cells"></div>
+		<div id="deptlist" style="margin:0;padding:0" class="weui-cells"></div>
+		<div id="searchlist" style="margin-top:0" class="weui-cells"></div>
+	</div>	
+</div>
+
+<div temp="user" style="margin-top:0;display:none">
+	<div class="weui-cells" style="margin-top:0" id="grouplist"></div>
+</div>

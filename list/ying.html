@@ -1,0 +1,90 @@
+<script>
+$(document).ready(function(){
+
+	var c = {
+		init:function(){
+			this.reloadss();
+			
+			this.showagent(xcy.agentarr);
+			xcy.showqipao('historyjson', '0');
+		},
+		reloadss:function(){
+			js.ajax('indexreim|mwebinit',false,function(da){
+				var ret = da.data;
+				js.setoption('agentjson', ret.agentjson);
+				js.setoption('historyjson', ret.historyjson);
+				
+				xcy.agentarr = js.decode(ret.agentjson);
+				c.showagent(xcy.agentarr);
+				xcy.historyarr = js.decode(ret.historyjson);
+				
+				xcy.showqipao('historyjson', '0');
+				xcy.reloadok();
+			}, 'get', function(){
+				xcy.showerror();
+			});
+		},
+		showagent:function(a){
+			var i,len=a.length,d,oshow,typearr={},s,ois=0;
+			oshow = $('#main_index1');
+			oshow.html('');
+			for(i=0;i<len;i++){
+				d 	= a[i];
+				d.i = i;
+				if(!typearr[d.types])typearr[d.types]=[];
+				typearr[d.types].push(d);
+			}
+			for(ty in typearr){
+				ois++;
+				len = typearr[ty].length;
+				s = '<div class="weui-cells__title">'+ty+'</div><div id="agentshow_'+ois+'" style="background-color:white" class="weui-grids"></div>';
+				oshow.append(s);
+				for(i=0;i<len;i++){
+					this.showagents(typearr[ty][i], 'agentshow_'+ois+'');
+				}
+			}
+			this.changestotl('agentstotal_',1);
+		},
+		changestotl:function(jg,lx){
+			if(!jg)jg='histotal_';
+			var o=$("span[id^='"+jg+"']"),oi=0,i,len=o.length,v1;
+			for(i=0;i<len;i++){
+				v1=$(o[i]).text();
+				if(v1=='')v1='0';
+				oi=oi+parseFloat(v1);
+			}
+			if(oi==0)oi='';
+			$('#stotal_ss'+lx+'').html(''+oi);
+		},
+		showagents:function(d,shows){
+			var s='';
+			var s1=d.stotal;if(s1==0)s1='';
+			s='<a href="javascript:;" onclick="yy{rand}.openagent('+d.id+')" class="weui-grid" style="width:25%;padding:15px 10px">';
+			s+='<div class="weui-grid__icon">';
+				s+='	<img src="'+d.face+'">';
+			s+='	<span id="agentstotal_'+d.id+'" class="weui-badge">'+s1+'</span>';
+			s+='</div>';
+			s+='<p class="weui-grid__label">';
+			s+=' '+d.name+'';
+			s+='</p>';
+			s+='</a>';
+			agentarr[d.id]=d;
+			$('#'+shows+'').append(s);
+		},
+		openagent:function(yyid){
+			var d = agentarr[yyid];
+			var url = d.urlm;
+			if(isempt(url))url = 'index.php?m=ying&d=we&num='+d.num+'';
+			$('#agentstotal_'+d.id+'').html('');
+			this.changestotl('agentstotal_',1);
+			xcy.openurl(url);
+		}
+	}
+	c.init();
+	xcy.touchload['ying']=function(){
+		c.reloadss();
+	}
+	yy{rand} = c;
+});
+</script>
+<div  id="main_index1"></div>

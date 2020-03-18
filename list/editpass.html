@@ -1,0 +1,80 @@
+<script>
+$(document).ready(function(){
+	{params}
+	
+	var c = {
+		loginsubmit:function(){
+			var opass	= $('#oldpass').val();
+			var pass	= $('#newpass').val();
+			var pass1	= $('#newpass1').val();
+			
+			if(opass==''){
+				js.msg('msg','旧密码不能为空');
+				return false;
+			}
+
+			if(pass.length <4){
+				js.msg('msg','新密码不能少于4个字符');
+				return false;
+			}
+			if(!/[a-zA-Z]{1,}/.test(pass) || !/[0-9]{1,}/.test(pass)){
+				js.msg('msg','新密码必须使用字母+数字');
+				return false;
+			}
+			if(opass==pass){
+				js.msg('msg','新密码不能和旧密码相同');
+				return false;
+			}
+			if(pass!=pass1){
+				js.msg('msg','确认密码不一致');
+				return false;
+			}
+			js.ajax('user|editpass',{passoldPost:opass,passwordPost:pass},function(){
+				params.type = '0';
+				js.wx.msgok('密码修改成功',function(){
+					xcy.back();
+				},1);
+			},'post');
+		}
+	}
+	js.initbtn(c);
+	
+	$('#backbtn').show();
+	xcy.backcall.editpass=function(){
+		xcy.addtabs('我','user');
+	}
+	xcy.unloadarr['editpass']=function(){
+		if(params.type=='1'){
+			return '请先修改密码';
+		}
+	}
+});
+</script>
+
+
+
+<div class="weui-cells weui-cells_form">
+	<div class="weui-cell">
+		<div class="weui-cell__hd"><label class="weui-label">旧密码</label></div>
+		<div class="weui-cell__hd">
+			<input class="weui-input" type="text" id="oldpass" placeholder="请输入旧密码"/>
+		</div>
+	</div>
+	
+	<div class="weui-cell">
+		<div class="weui-cell__hd"><label class="weui-label">新密码</label></div>
+		<div class="weui_cell__bd">
+			<input class="weui-input" id="newpass"  type="password" placeholder="至少4位字母+数字组合"/>
+		</div>
+	</div>
+	<div class="weui-cell">
+		<div class="weui-cell__hd"><label class="weui-label">确认密码</label></div>
+		<div class="weui_cell__bd">
+			<input class="weui-input" id="newpass1" type="password" placeholder="请输入"/>
+		</div>
+	</div>
+</div>
+
+<div style="margin:20px">
+	<input class="weui-btn weui-btn_primary" type="button" clickevt="loginsubmit" value="确认修改">
+</div>
